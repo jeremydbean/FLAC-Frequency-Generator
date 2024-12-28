@@ -101,3 +101,114 @@ The generated FLAC and subtitle files are saved in the current working directory
 ## License
 
 This script is provided under the MIT License. You are free to use, modify, and distribute it.
+
+
+-----------------------
+
+# FLAC File Analyzer and Comparator
+
+This script analyzes and compares FLAC files by visualizing their frequency
+spectrum, peaks, and calculating metrics such as RMS amplitude, spectral
+flatness, and total power.
+
+## Features
+
+  1. **Analyze a Single FLAC File** : 
+     * Visualize the frequency spectrum of a single FLAC file.
+     * Identify and annotate prominent frequency peaks.
+     * Calculate and display metrics: 
+       * **RMS Amplitude** : Measures the signal's power.
+       * **Spectral Flatness** : Indicates how noise-like or tonal the spectrum is.
+       * **Total Power** : Sum of the squared amplitudes of the signal.
+  2. **Compare Two FLAC Files** : 
+     * Overlay frequency spectra of two FLAC files for comparison.
+     * Annotate peaks for both files.
+     * Restrict the comparison to the overlapping frequency range specified in the file names.
+     * Display metrics for both files: 
+       * RMS Amplitude
+       * Spectral Flatness
+       * Total Power
+  3. **Automatic Frequency Range Detection** : 
+     * Extract frequency range and spacing from file names (e.g., `15.000kHz_to_19.000kHz_spacing_0.125kHz.flac`).
+
+## Prerequisites
+
+  * **Python 3.7 or later**
+  * Required Python Libraries: 
+    * `numpy`
+    * `matplotlib`
+    * `scipy`
+    * `soundfile`
+
+Install the required libraries with:
+
+    
+    
+    pip install numpy matplotlib scipy soundfile
+
+## Usage Instructions
+
+  1. **Ensure your FLAC files are in the same directory as the script**.
+  2. Run the script: 
+    
+        python3 compare.py
+
+  3. Choose whether to analyze a single file or compare two: 
+     * Enter `s` to analyze a single file.
+     * Enter `c` to compare two files.
+
+### Single File Analysis
+
+  * Select a file by entering the number corresponding to the file in the list.
+  * The script will: 
+    * Display the frequency spectrum with peaks annotated.
+    * Calculate and display RMS amplitude, spectral flatness, and total power.
+
+### Comparing Two Files
+
+  * Select two files by entering their numbers from the list.
+  * The script will: 
+    * Overlay the frequency spectra of both files.
+    * Annotate peaks for both files with a slight offset to avoid overlap.
+    * Calculate and display metrics for both files.
+
+## Output
+
+  * **Plots** : 
+    * Frequency spectrum with peaks annotated.
+    * Overlay of two spectra for comparison (in comparison mode).
+  * **Metrics** : 
+    * RMS Amplitude
+    * Spectral Flatness
+    * Total Power
+
+## File Name Format
+
+The script extracts frequency range and spacing information from the file
+name. Ensure your files follow this format:
+
+    
+    
+    <start_frequency>kHz_to_<end_frequency>kHz_spacing_<spacing>kHz_<type>.flac
+
+For example:
+
+    
+    
+    15.000kHz_to_19.000kHz_spacing_0.125kHz_max.flac
+
+## Example Outputs
+
+### Single File
+
+  * Frequency spectrum with annotated peaks.
+  * RMS amplitude, spectral flatness, and total power.
+
+### Comparison
+
+  * Overlayed frequency spectra with annotated peaks.
+  * Metrics for both files, displayed side by side.
+
+* * *
+
+For any issues or suggestions, feel free to reach out!
