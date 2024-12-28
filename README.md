@@ -103,9 +103,12 @@ The generated FLAC and subtitle files are saved in the current working directory
 This script is provided under the MIT License. You are free to use, modify, and distribute it.
 
 
+
 -----------------------
 
-# FLAC File Analyzer and Comparator
+
+
+# FLAC File Analyzer and Comparator (compare.py)
 
 This script analyzes and compares FLAC files by visualizing their frequency
 spectrum, peaks, and calculating metrics such as RMS amplitude, spectral
