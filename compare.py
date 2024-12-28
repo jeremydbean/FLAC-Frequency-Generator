@@ -3,7 +3,7 @@ import re
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.fft import fft
-from scipy.signal import butter, sosfilt, windows
+from scipy.signal import find_peaks, butter, sosfilt, windows
 import soundfile as sf
 
 
@@ -25,40 +25,71 @@ def extract_frequencies_from_name(file_name):
         return None, None, None
 
 
-# Function to apply a bandpass filter to isolate the target frequency range
+# Function to apply a bandpass filter
 def bandpass_filter(data, lowcut, highcut, fs, order=5):
     sos = butter(order, [lowcut, highcut], btype='band', fs=fs, output='sos')
     return sosfilt(sos, data)
 
 
-# Function to apply a window to reduce spectral leakage
+# Function to calculate RMS amplitude
+def calculate_rms(data):
+    return np.sqrt(np.mean(data**2))
+
+
+# Function to calculate spectral flatness
+def calculate_spectral_flatness(data):
+    fft_data = np.abs(fft(data))
+    geometric_mean = np.exp(np.mean(np.log(fft_data + 1e-10)))
+    arithmetic_mean = np.mean(fft_data)
+    return geometric_mean / arithmetic_mean
+
+
+# Function to calculate total power
+def calculate_total_power(data):
+    return np.sum(data**2)
+
+
+# Function to apply a Hanning window
 def apply_window(data):
     window = windows.hann(len(data))
     return data * window
 
 
-# Function to plot the frequency spectrum
-def plot_frequency_spectrum(audio_data, samplerate, title, lowcut=None, highcut=None, color='blue'):
+# Function to plot the frequency spectrum with peaks
+def plot_frequency_spectrum_with_peaks(audio_data, samplerate, title, lowcut=None, highcut=None, color='blue', alpha=1.0, offset=0):
     # Optionally filter the data
     if lowcut and highcut:
         audio_data = bandpass_filter(audio_data, lowcut, highcut, samplerate)
 
-    # Apply windowing to reduce spectral leakage
+    # Apply windowing
     audio_data = apply_window(audio_data)
 
     # Perform FFT
     n = len(audio_data)
-    yf = np.abs(fft(audio_data))[:n // 2] / n  # Normalize the FFT
-    xf = np.linspace(0, samplerate / 2, n // 2) / 1000  # Convert to kHz
+    yf = np.abs(fft(audio_data))[:n // 2] / n  # Normalize FFT
+    xf = np.linspace(0, samplerate / 2, n // 2)  # Frequency axis in Hz
 
-    # Plot the spectrum
-    plt.plot(xf, 20 * np.log10(yf + 1e-10), label=title, color=color)
+    # Restrict data to the specified frequency range
+    if lowcut and highcut:
+        mask = (xf >= lowcut) & (xf <= highcut)
+        xf = xf[mask]
+        yf = yf[mask]
+
+    # Find peaks within the restricted range
+    peaks, _ = find_peaks(20 * np.log10(yf + 1e-10), height=-80, distance=100)
+
+    # Plot spectrum
+    plt.plot(xf / 1000 + offset, 20 * np.log10(yf + 1e-10), label=title, color=color, alpha=alpha)
+    plt.scatter(xf[peaks] / 1000 + offset, 20 * np.log10(yf[peaks] + 1e-10), color=color, s=10, label=f"Peaks ({title})", alpha=alpha)
+    for peak in peaks:
+        plt.annotate(f"{xf[peak] / 1000 + offset:.2f} kHz", (xf[peak] / 1000 + offset, 20 * np.log10(yf[peak]) + 2), fontsize=8, alpha=alpha)
+
     plt.xlabel("Frequency (kHz)")
     plt.ylabel("Magnitude (dB)")
-    plt.title(f"Frequency Spectrum: {title}")
-    plt.xlim([lowcut / 1000 if lowcut else 0, highcut / 1000 if highcut else samplerate / 2000])  # Restrict x-axis
-    plt.legend()
+    plt.title("Frequency Spectrum Comparison")
     plt.grid()
+    plt.legend(loc="upper right")  # Explicit location for legend
+    plt.xlim([lowcut / 1000, highcut / 1000])  # Restrict x-axis to the file's frequency range
 
 
 # Function to get user selection from a list of files
@@ -98,27 +129,25 @@ def main():
 
     if mode == 's':
         # Single file mode
+        print("\nSelect the FLAC file to analyze:")
         file = select_file(flac_files)
         if file:
-            # Automatically extract frequency range and spacing from the file name
-            start_freq, end_freq, spacing = extract_frequencies_from_name(file)
-            if start_freq and end_freq:
-                print(f"Automatically detected frequency range: {start_freq / 1000:.3f} kHz to {end_freq / 1000:.3f} kHz")
-                if spacing:
-                    print(f"Spacing: {spacing / 1000:.3f} kHz")
-            else:
-                print("Could not detect frequency range from file name. Please enter manually.")
-                start_freq = float(input("Enter the lower bound of the frequency range to analyze (in Hz): "))
-                end_freq = float(input("Enter the upper bound of the frequency range to analyze (in Hz): "))
-
-            print(f"\nViewing frequency spectrum for: {file}")
+            start_freq, end_freq, _ = extract_frequencies_from_name(file)
+            print(f"\nAnalyzing frequency spectrum for: {file}")
             data, samplerate = sf.read(file)
 
             plt.figure(figsize=(12, 6))
-            plot_frequency_spectrum(data, samplerate, file, lowcut=start_freq, highcut=end_freq, color='blue')
+            plot_frequency_spectrum_with_peaks(data, samplerate, file, lowcut=start_freq, highcut=end_freq, color='blue', alpha=0.8)
             plt.show()
-        else:
-            print("No file selected. Exiting.")
+
+            rms = calculate_rms(data)
+            flatness = calculate_spectral_flatness(data)
+            power = calculate_total_power(data)
+
+            print(f"\nMetrics for {file}:")
+            print(f"RMS Amplitude: {rms:.4f}")
+            print(f"Spectral Flatness: {flatness:.4f}")
+            print(f"Total Power: {power:.4f}")
 
     elif mode == 'c':
         # Comparison mode
@@ -128,22 +157,32 @@ def main():
         file2 = select_file(flac_files)
 
         if file1 and file2:
-            # Automatically extract frequency ranges from file names
-            start_freq1, end_freq1, spacing1 = extract_frequencies_from_name(file1)
-            start_freq2, end_freq2, spacing2 = extract_frequencies_from_name(file2)
+            start_freq1, end_freq1, _ = extract_frequencies_from_name(file1)
+            start_freq2, end_freq2, _ = extract_frequencies_from_name(file2)
 
-            print(f"\nComparing {file1} ({start_freq1 / 1000:.3f} kHz to {end_freq1 / 1000:.3f} kHz)")
-            print(f"With {file2} ({start_freq2 / 1000:.3f} kHz to {end_freq2 / 1000:.3f} kHz)")
+            # Restrict to the overlapping frequency range
+            lowcut = max(start_freq1, start_freq2)
+            highcut = min(end_freq1, end_freq2)
+
+            print(f"\nComparing {file1} and {file2}")
+            data1, samplerate1 = sf.read(file1)
+            data2, samplerate2 = sf.read(file2)
 
             plt.figure(figsize=(12, 6))
-            data1, samplerate1 = sf.read(file1)
-            plot_frequency_spectrum(data1, samplerate1, f"{file1}", lowcut=start_freq1, highcut=end_freq1, color='blue')
-
-            data2, samplerate2 = sf.read(file2)
-            plot_frequency_spectrum(data2, samplerate2, f"{file2}", lowcut=start_freq2, highcut=end_freq2, color='red')
+            plot_frequency_spectrum_with_peaks(data1, samplerate1, file1, lowcut=lowcut, highcut=highcut, color='blue', alpha=0.8, offset=0)
+            plot_frequency_spectrum_with_peaks(data2, samplerate2, file2, lowcut=lowcut, highcut=highcut, color='red', alpha=0.8, offset=0.01)
             plt.show()
-        else:
-            print("Comparison could not be completed. Ensure two files are selected.")
+
+            rms1 = calculate_rms(data1)
+            rms2 = calculate_rms(data2)
+            flatness1 = calculate_spectral_flatness(data1)
+            flatness2 = calculate_spectral_flatness(data2)
+            power1 = calculate_total_power(data1)
+            power2 = calculate_total_power(data2)
+
+            print("\nComparison Metrics:")
+            print(f"{file1}: RMS={rms1:.4f}, Flatness={flatness1:.4f}, Power={power1:.4f}")
+            print(f"{file2}: RMS={rms2:.4f}, Flatness={flatness2:.4f}, Power={power2:.4f}")
 
 
 if __name__ == "__main__":
