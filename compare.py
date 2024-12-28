@@ -14,12 +14,12 @@ def list_flac_files(directory):
 
 # Function to extract frequency range and spacing from file name
 def extract_frequencies_from_name(file_name):
-    pattern = r"(\d+\.\d+)kHz_to_(\d+\.\d+)kHz_spacing_(\d+\.\d+)kHz"
+    pattern = r"(\d+\.\d+)kHz_to_(\d+\.\d+)kHz(?:_spacing_(\d+\.\d+)kHz)?(?:_regular|_max)?"
     match = re.search(pattern, file_name)
     if match:
         start_freq = float(match.group(1)) * 1000  # Convert to Hz
         end_freq = float(match.group(2)) * 1000  # Convert to Hz
-        spacing = float(match.group(3)) * 1000  # Convert to Hz
+        spacing = float(match.group(3)) * 1000 if match.group(3) else None  # Convert to Hz
         return start_freq, end_freq, spacing
     else:
         return None, None, None
@@ -91,12 +91,12 @@ def main():
 
     # Prompt user to view a single file or compare two
     while True:
-        mode = input("Do you want to view a single FLAC file or compare two? (Enter 'single' or 'compare'): ").strip().lower()
-        if mode in ['single', 'compare']:
+        mode = input("Do you want to analyze a single FLAC file or compare two? (Enter 's' for single, 'c' for compare): ").strip().lower()
+        if mode in ['s', 'c']:
             break
-        print("Invalid input. Please enter 'single' or 'compare'.")
+        print("Invalid input. Please enter 's' for single or 'c' for compare.")
 
-    if mode == 'single':
+    if mode == 's':
         # Single file mode
         file = select_file(flac_files)
         if file:
@@ -104,7 +104,8 @@ def main():
             start_freq, end_freq, spacing = extract_frequencies_from_name(file)
             if start_freq and end_freq:
                 print(f"Automatically detected frequency range: {start_freq / 1000:.3f} kHz to {end_freq / 1000:.3f} kHz")
-                print(f"Spacing: {spacing / 1000:.3f} kHz")
+                if spacing:
+                    print(f"Spacing: {spacing / 1000:.3f} kHz")
             else:
                 print("Could not detect frequency range from file name. Please enter manually.")
                 start_freq = float(input("Enter the lower bound of the frequency range to analyze (in Hz): "))
@@ -119,7 +120,7 @@ def main():
         else:
             print("No file selected. Exiting.")
 
-    elif mode == 'compare':
+    elif mode == 'c':
         # Comparison mode
         print("\nSelect the first file for comparison:")
         file1 = select_file(flac_files)
@@ -147,4 +148,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
